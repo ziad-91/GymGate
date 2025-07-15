@@ -4,3 +4,4 @@ pyairtable==2.3.0
 Flask-Cors
 requests
 gunicorn
+supabase

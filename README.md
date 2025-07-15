@@ -9,81 +9,105 @@ This web application provides a QR code-based check-in system for the TKO Martia
 - **QR Code Scanning**: Uses the device's camera to scan member QR codes.
 - **Airtable Integration**: Syncs member data directly from an Airtable base.
 - **Local Database Cache**: Stores member data in a local SQLite database for fast lookups.
-- **Password-Protected Sync**: A "Sync with Airtable" button allows an admin to update the local database with the latest member info.
-
 ---
 
-## How It Works
+## Setup and Configuration
 
-1.  **QR Codes**: Each member has a QR code that encodes their unique phone number.
-2.  **Airtable**: The gym owner maintains a list of all members in an Airtable base. This is the single source of truth for membership status and expiry dates.
-3.  **Syncing**: An admin can press the "Sync with Airtable" button on the web app. This fetches all member records from Airtable and saves them to a local `members.db` SQLite file.
-4.  **Scanning**: When a QR code is scanned, the app reads the phone number and looks it up in the local `members.db` to check the membership expiry date.
+### 1. Environment Variables (`.env`)
 
----
+Create a file named `.env` in the project root. Copy the template below and fill it with your actual credentials. **This file must not be committed to Git.**
 
-## Setup and Installation
-
-Follow these steps to run the application on your local machine.
-
-### 1. Prerequisites
-
-- Python 3.x
-- `pip` (Python package installer)
-
-### 2. Configure Environment Variables
-
-Create a file named `.env` in the project's root directory. This file will store your secret credentials. Add the following content to it, replacing the placeholder values with your own:
-
-```
+```sh
 # .env file
 
-# Get this from your Airtable account settings (https://airtable.com/create/tokens)
-# Ensure it has `data.records:read` scope and access to your TKO base.
+# Airtable Credentials (for data syncing)
 AIRTABLE_TOKEN=patYOUR_AIRTABLE_PERSONAL_ACCESS_TOKEN
+AIRTABLE_BASE_ID=appYOUR_AIRTABLE_BASE_ID
+AIRTABLE_TABLE_NAME=Your Airtable Table Name
 
-# Find this on your Airtable API documentation page for your base.
-AIRTABLE_BASE_ID=appjDTBGG5XjjmwiW
+# Supabase Credentials (the live database)
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_SERVICE_KEY=your-supabase-service-role-key
 
-# The exact name of the table containing your members.
-AIRTABLE_TABLE_NAME=TKO Members
+# Sync Password (to protect the sync button)
+SYNC_PASSWORD=create-a-strong-password
+```
 
-# A password to protect the database sync functionality.
-SYNC_PASSWORD=changeme123
+### 2. Supabase Database Setup
+
+Before running the app, you must create the necessary tables in your Supabase project.
+
+1.  Navigate to the **SQL Editor** in your Supabase dashboard.
+2.  Run the following SQL commands one by one:
+
+**Create the `members` table:**
+```sql
+-- Drop the old table first if it exists, to start fresh.
+DROP TABLE IF EXISTS public.members CASCADE;
+
+-- Create the new members table with 'id' as the primary key
+CREATE TABLE public.members (
+  id INT PRIMARY KEY NOT NULL, -- The Autonumber from Airtable
+  phone_number TEXT UNIQUE,    -- Phone number is still unique, but not the PK
+  name TEXT NOT NULL,
+  status TEXT,
+  membership_expiry_date DATE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+COMMENT ON TABLE public.members IS 'Stores member data synced from Airtable, using Airtable Autonumber as ID.';
+```
+
+**Create the `checkins` table:**
+```sql
+-- Drop the old table first if it exists
+DROP TABLE IF EXISTS public.checkins;
+
+-- Create the new checkins table with a foreign key to members.id
+CREATE TABLE public.checkins (
+  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  phone_number_scanned TEXT,
+  member_name TEXT,
+  status TEXT NOT NULL,
+  member_id INT REFERENCES public.members(id) ON DELETE SET NULL
+);
+
+COMMENT ON TABLE public.checkins IS 'Logs every QR code scan attempt, linked to a member ID.';
 ```
 
 ### 3. Install Dependencies
 
-Open your terminal in the project root folder and run the following command to install the required Python packages:
-
+Install all required Python packages:
 ```sh
 pip install -r requirements.txt
 ```
 
 ---
 
-## Running the Application
+## Running Locally
 
-### 1. Launch the Server
+1.  **Start the Server**:
+    ```sh
+    python app/server.py
+    ```
+2.  **Access the App**: Open your browser to `http://127.0.0.1:5000`.
+3.  **Sync the Database**: Click the **"Sync with Airtable"** button and enter your `SYNC_PASSWORD`. This will pull data from Airtable into your Supabase database.
 
-To start the web application, run the following command from the project's root directory:
+---
 
-```sh
-python app/server.py
-```
+## Deployment on Render
 
-The server will start, and you will see output indicating it is running on `http://127.0.0.1:5000`.
+This application is configured for easy deployment on [Render](https://render.com/).
 
-### 2. Access the App
-
-Open your web browser and navigate to:
-**[http://127.0.0.1:5000](http://127.0.0.1:5000)**
-
-### 3. Sync the Database
-
-Before you can scan members, you must sync the database with Airtable:
-1.  Click the **"Sync with Airtable"** button.
-2.  When prompted, enter the `SYNC_PASSWORD` you set in your `.env` file.
-3.  A message will confirm the number of members synced.
-
-Your application is now ready to scan QR codes.
+1.  **Push to GitHub**: Make sure all your latest code changes are pushed to your GitHub repository.
+2.  **Create Blueprint Service**: On your Render dashboard, click **New +** > **Blueprint** and connect your GitHub repo. Render will automatically use the `render.yaml` file.
+3.  **Add Environment Variables**: In your Render service's **Environment** tab, create an "Environment Group" or add the following secrets individually. These must match your `.env` file.
+    - `AIRTABLE_TOKEN`
+    - `AIRTABLE_BASE_ID`
+    - `AIRTABLE_TABLE_NAME`
+    - `SUPABASE_URL`
+    - `SUPABASE_SERVICE_KEY`
+    - `SYNC_PASSWORD`
+4.  **Deploy**: Click **Create New Blueprint Service**. Render will build and deploy your app. Once live, you can access it from anywhere using the public URL provided.
