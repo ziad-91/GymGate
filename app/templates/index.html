@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TKO Martial Arts Check-in</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            transition: background-color 0.5s ease;
+            flex-direction: column;
+            color: #333;
+        }
+        #reader {
+            width: 500px;
+            max-width: 90%;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: #fff;
+        }
+        #result-display {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            font-size: 1.5em;
+            text-align: center;
+            min-width: 300px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            color: white; /* Default text color for results */
+            display: none; /* Hidden by default */
+        }
+        .green-screen {
+            background-color: #4CAF50; /* Green */
+        }
+        .red-screen {
+            background-color: #F44336; /* Red */
+        }
+        .default-screen {
+            background-color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        #loading-message {
+            margin-top: 20px;
+            font-size: 1.2em;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <h1>Scan QR Code for Check-in</h1>
+    <!-- Admin sync button: triggers backend to sync with Airtable. Only affects the database, not QR code images. -->
+    <button id="sync-btn" style="margin-bottom: 20px; font-size: 1.1em; padding: 8px 20px;">Sync with Airtable</button>
+    <span id="sync-status" style="margin-left: 10px; font-weight: bold;"></span>
+    <div id="reader"></div>
+    <div id="loading-message">Loading scanner...</div>
+    <div id="result-display"></div>
+
+    <script src="/static/html5-qrcode.min.js"></script>
+    <script src="/static/app.js"></script>
+<script>
+// The QR code scanner expects the QR code to encode the member's phone number (or unique ID).
+// It does NOT use the QR code image or its Airtable public link. Only the decoded value is used for lookup.
+document.getElementById('sync-btn').addEventListener('click', async function() {
+    const password = prompt('Enter sync password:');
+    if (!password) return;
+    const statusElem = document.getElementById('sync-status');
+    statusElem.textContent = 'Syncing...';
+    statusElem.style.color = '#555';
+    try {
+        const resp = await fetch('/sync_airtable', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password })
+        });
+        const data = await resp.json();
+        if (data.status === 'success') {
+            statusElem.textContent = data.message;
+            statusElem.style.color = 'green';
+        } else {
+            statusElem.textContent = data.message || 'Sync failed.';
+            statusElem.style.color = 'red';
+        }
+    } catch (err) {
+        statusElem.textContent = 'Sync error.';
+        statusElem.style.color = 'red';
+    }
+});
+</script>
+    <script>
+        document.getElementById('sync-btn').addEventListener('click', async function() {
+            const password = prompt('Enter sync password:');
+            if (!password) return;
+            const statusElem = document.getElementById('sync-status');
+            statusElem.textContent = 'Syncing...';
+            statusElem.style.color = '#555';
+            try {
+                const resp = await fetch('/sync_airtable', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                const data = await resp.json();
+                if (data.status === 'success') {
+                    statusElem.textContent = data.message;
+                    statusElem.style.color = 'green';
+                } else {
+                    statusElem.textContent = data.message || 'Sync failed.';
+                    statusElem.style.color = 'red';
+                }
+            } catch (err) {
+                statusElem.textContent = 'Sync error.';
+                statusElem.style.color = 'red';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+# render.yaml
+# This file tells Render how to deploy your application.
+
+services:
+  - type: web
+    name: tko-scanner
+    env: python
+    plan: free # You can upgrade this later if you need more resources
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn app.server:app"
+    envVars:
+      - key: AIRTABLE_BASE_ID
+        fromEnv: AIRTABLE_BASE_ID
+      - key: AIRTABLE_TABLE_NAME
+        fromEnv: AIRTABLE_TABLE_NAME
+      - key: AIRTABLE_TOKEN
+        fromEnv: AIRTABLE_TOKEN
+      - key: SYNC_PASSWORD
+        fromEnv: SYNC_PASSWORD
