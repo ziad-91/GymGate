@@ -1,4 +1,4 @@
-Name,Phone,Classes,Status,Last Renewed,Expiry,Generate QR Code,QR Code,Field 8,Field 9,Field 10,Field 11,ID
+name,phone_number,Classes,subscription_status,last_renewed,expiry,Generate QR Code,QR Code,Field 8,Field 9,Field 10,Field 11,ID
 Adham Younes DuD,1221211313,MMA Advanced,Expired,10/2/2025,10/3/2025,,,,,2/12/2025 9:07pm,7/1/2023 8:57pm,1
 Mohamed Saeed,1126754789,BJJ Men,Expired,12/2/2025,12/3/2025,,,,,2/12/2025 11:20pm,2/12/2025 11:20pm,2
 Seif sameh,1116211105,BJJ Men,Expired,1/27/2025,3/13/2025,,,,,2/26/2025 2:43pm,6/6/2024 6:19pm,3

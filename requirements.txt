@@ -1,7 +1,7 @@
 Flask==2.3.3
 python-dotenv==1.0.0
 pyairtable==2.3.0
-Flask-Cors
-requests
-gunicorn
-supabase
+Flask-Cors==4.0.1
+requests==2.32.3
+supabase==2.5.1
+mangum==0.17.0

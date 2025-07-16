@@ -1,73 +1,98 @@
-document.addEventListener('DOMContentLoaded', (event) => {
+document.addEventListener('DOMContentLoaded', function () {
     const resultDisplay = document.getElementById('result-display');
-    const loadingMessage = document.getElementById('loading-message');
-    let lastScannedCode = null;
-    let debounceTimer;
-    const DEBOUNCE_TIME = 2000; // 2 seconds debounce time
+
+    const syncBtn = document.getElementById('sync-btn');
+    const syncStatus = document.getElementById('sync-status');
+
+    // Track last scan to debounce duplicate readings within 5 seconds
+    let lastScannedText = null;
+    let lastScanTime = 0;
+
+    const sessionSelect = document.getElementById('session-select');
 
     function onScanSuccess(decodedText, decodedResult) {
-        if (decodedText !== lastScannedCode) {
-            lastScannedCode = decodedText;
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => {
-                console.log(`Code matched = ${decodedText}`, decodedResult);
-                sendPhoneNumberToBackend(decodedText);
-            }, DEBOUNCE_TIME);
-        } else {
-            console.log("Duplicate scan, ignoring.");
+        // Ensure a session is chosen
+        const sessionClass = sessionSelect.value;
+        if (!sessionClass) {
+            alert('Please choose a session before scanning.');
+            return;
         }
+        const now = Date.now();
+        if (decodedText === lastScannedText && now - lastScanTime < 5000) {
+            // Ignore duplicate scan
+            return;
+        }
+        lastScannedText = decodedText;
+        lastScanTime = now;
+        console.log(`Scan result: ${decodedText}`);
+
+        fetch('/checkin', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ phone_number: decodedText, session_class: sessionClass }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Server response:', data);
+            resultDisplay.textContent = data.message;
+            resultDisplay.style.display = 'block';
+
+            // Reset classes and then apply color based on acceptance
+            resultDisplay.className = '';
+            if (data.screen_color === 'green') {
+                resultDisplay.classList.add('green-screen');
+            } else {
+                // Any non-green response is shown in red
+                resultDisplay.classList.add('red-screen');
+            }
+        })
+        .catch((error) => {
+            console.error('Error:', error);
+            resultDisplay.textContent = 'Error checking in.';
+            resultDisplay.style.display = 'block';
+            resultDisplay.className = 'red-screen';
+        });
     }
 
-    function onScanFailure(error) {
-        // console.warn(`QR error = ${error}`);
+    function onScanError(errorMessage) {
+        // handle on error condition, usually happens when camera is not available
+        // console.error(`QR Code no longer in view.`);
     }
 
-    let html5QrcodeScanner = new Html5Qrcode("reader");
-    html5QrcodeScanner.start(
-        { facingMode: "environment" }, // Prefer rear camera
-        { fps: 10, qrbox: { width: 250, height: 250 } },
-        onScanSuccess,
-        onScanFailure
-    ).then(() => {
-        loadingMessage.style.display = 'none';
-        console.log("QR Code scanner started.");
-    }).catch((err) => {
-        loadingMessage.textContent = `Error starting scanner: ${err}. Please ensure you have a webcam and grant camera permissions.`;
-        loadingMessage.style.color = 'red';
-        console.error("Error starting scanner:", err);
-    });
+    let html5QrcodeScanner = new Html5QrcodeScanner(
+        "reader", { fps: 10, qrbox: 250 });
 
-    function displayResult(message, color) {
-        resultDisplay.textContent = message;
-        resultDisplay.className = ''; // Clear previous classes
-        resultDisplay.classList.add(color === 'green' ? 'green-screen' : 'red-screen');
-        resultDisplay.style.display = 'block';
-        
-        // Hide result after a few seconds and prepare for next scan
-        setTimeout(() => {
-            resultDisplay.style.display = 'none';
-            resultDisplay.textContent = '';
-            resultDisplay.classList.remove('green-screen', 'red-screen');
-            lastScannedCode = null; // Reset last scanned code after display
-        }, 5000); // Display for 5 seconds
+    // Hide loading message once scanner is ready
+    try {
+        html5QrcodeScanner.render(onScanSuccess, onScanError);
+    } catch (err) {
+        console.error('Scanner render error:', err);
+        alert('Failed to start scanner. Please ensure camera access is allowed.');
     }
 
-    async function sendPhoneNumberToBackend(phoneNumber) {
-        try {
-            const response = await fetch('/checkin', {
+    syncBtn.addEventListener('click', function() {
+        const password = prompt("Please enter the sync password:");
+        if (password) {
+            syncStatus.textContent = 'Syncing...';
+            fetch('/sync_airtable', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ phone_number: phoneNumber }),
+                body: JSON.stringify({ password: password })
+            })
+            .then(response => response.json())
+            .then(data => {
+                syncStatus.textContent = data.message;
+                syncStatus.style.color = data.status === 'success' ? 'green' : 'red';
+            })
+            .catch(error => {
+                console.error('Sync error:', error);
+                syncStatus.textContent = 'Sync failed.';
+                syncStatus.style.color = 'red';
             });
-
-            const data = await response.json();
-            displayResult(data.message, data.screen_color);
-
-        } catch (error) {
-            console.error('Error sending data to backend:', error);
-            displayResult('Error checking in. Please try again.', 'red');
         }
-    }
-}); 
+    });
+});
