@@ -4,7 +4,7 @@ from pathlib import Path
 # Add the project root to the Python path
 # This allows the handler to import the 'app' module
 file = Path(__file__).resolve()
-parent, root = file.parent, file.parents[2]
+root = file.parents[1]
 sys.path.append(str(root))
 
 from mangum import Mangum
